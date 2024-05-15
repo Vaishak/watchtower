@@ -1,16 +1,49 @@
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
+import { Hono } from 'hono';
+import { serve } from '@hono/node-server';
+import axios from 'axios';
+import { cors } from 'hono/cors';
+import { config } from 'dotenv';
 
-const app = new Hono()
+config(); // Load environment variables from .env
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
 
-const port = 3000
-console.log(`Server is running on port ${port}`)
+const app = new Hono();
 
-serve({
-  fetch: app.fetch,
-  port
-})
+// Configure CORS to allow requests from the frontend
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST'],
+}));
+
+// Define the API endpoint
+app.post('/api/dashboard', async (c) => {
+  const requestBody = {
+    parameters: {
+      channel: 'fbi'
+    },
+    'max-age': 0
+  };
+
+  try {
+    console.log("Request body: " + JSON.stringify(requestBody, null, 2));
+
+    const response = await axios.post('https://data.hubs.neynar.com/api/queries/610/results', requestBody, {
+      headers: {
+        'Authorization': `Key ${process.env.API_KEY}`
+      }
+    });
+
+    console.log("Response status code:", response.status);
+    console.log("Response data:", response.data);
+
+    return c.json(response.data);
+  } catch (error) {
+    console.error("Error:", error.response?.status, error.response?.data);
+    return c.json({ error: 'Failed to fetch data' }, 500);
+  }
+});
+
+// Serve the Hono app using Node's HTTP server
+serve(app);
+
+console.log('Server is running on http://localhost:3000');
